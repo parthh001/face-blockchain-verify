@@ -172,7 +172,7 @@ src/
   verify.py                      standalone re-verification of an already-anchored record
 contracts/
   ProofRegistry.sol           Solidity contract used by the testnet backend
-tests/                          26 unit tests, plain unittest, no pytest needed
+tests/                          32 unit tests, plain unittest, no pytest needed
 .github/workflows/tests.yml       CI: runs the full test suite (incl. real dlib install) on every push
 sample_images/                      put your own test photo here (not committed)
 ```
@@ -226,7 +226,7 @@ sample_images/                      put your own test photo here (not committed)
   indefinitely. The Bing provider avoids this — it sends image bytes
   directly.
 - **Everything network-dependent is unit-tested against mocked responses**
-  (31 tests, all passing) as the fast, repeatable safety net, but it has
+  (32 tests, all passing) as the fast, repeatable safety net, but it has
   also now been run for real against real, public photos with a real
   SerpApi key — which is exactly how the face-verification bug above was
   found and fixed. Still run it yourself (`python src/pipeline.py <photo>`,
