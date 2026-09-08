@@ -1,12 +1,14 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 import cv2
+import numpy as np
 import skimage.data as skdata
 
 import face_id
@@ -57,6 +59,30 @@ class TestFaceId(unittest.TestCase):
         self.assertEqual(original.shape, annotated.shape)
         # the box changes some pixels -- annotated image should differ from the original
         self.assertFalse((original == annotated).all())
+
+    def test_multiple_faces_uses_largest(self):
+        """Regression test: face_recognition.face_locations() does not sort
+        by size, so process_image() used to just take whichever face dlib
+        listed first (locations[0]) -- silently fingerprinting the wrong
+        person on any photo with more than one face. It must pick the
+        largest (closest-to-camera) face instead, matching the classical
+        fallback's behavior."""
+        fake_locations = [
+            (10, 60, 60, 10),   # small face: 50x50 = 2500
+            (0, 200, 200, 0),   # large face: 200x200 = 40000 -- must be picked
+            (5, 90, 85, 5),     # medium face: 80x85 = 6800
+        ]
+        with mock.patch.object(face_id, "_HAS_FACE_RECOGNITION", True), \
+             mock.patch.object(face_id, "face_recognition", create=True) as mock_fr:
+            mock_fr.face_locations.return_value = fake_locations
+            mock_fr.face_encodings.return_value = [np.zeros(128)]
+            record = face_id.process_image(self.image_path)
+
+        # bbox is (left, top, width, height); the large face's box is
+        # (top=0, right=200, bottom=200, left=0) -> bbox (0, 0, 200, 200).
+        self.assertEqual(record.bbox, (0, 0, 200, 200))
+        called_locations = mock_fr.face_encodings.call_args.kwargs["known_face_locations"]
+        self.assertEqual(called_locations, [(0, 200, 200, 0)])
 
 
 if __name__ == "__main__":

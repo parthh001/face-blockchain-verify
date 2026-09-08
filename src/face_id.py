@@ -122,9 +122,13 @@ def process_image(image_path: str) -> FaceRecord:
         locations = face_recognition.face_locations(rgb)
         if not locations:
             raise ValueError("No face detected in the input image.")
-        top, right, bottom, left = locations[0]
+        # face_locations() does not sort by size -- if several faces are
+        # found, use the largest (closest to camera), matching the
+        # classical fallback's behavior in _detect_face_bbox below.
+        best = max(locations, key=lambda loc: (loc[2] - loc[0]) * (loc[1] - loc[3]))
+        top, right, bottom, left = best
         bbox = (left, top, right - left, bottom - top)
-        encodings = face_recognition.face_encodings(rgb, known_face_locations=[locations[0]])
+        encodings = face_recognition.face_encodings(rgb, known_face_locations=[best])
         vector = np.asarray(encodings[0])
     else:
         gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
