@@ -2,9 +2,7 @@
 
 # Face Identification & Blockchain Verification
 
-### Face detection + genuine reverse-image search + blockchain-anchored proof of discovery
-
-Built for **HH Goa 2026 Shortlisting Task 3**.
+### Find where a face appears online, and prove it with a blockchain record
 
 <p>
 
@@ -23,42 +21,42 @@ Built for **HH Goa 2026 Shortlisting Task 3**.
 
 ---
 
-## Overview
+## What this does
 
-A pipeline that takes a face photo, finds a real matching social media post on the open web, and anchors that discovery on a blockchain as a tamper-evident, re-verifiable record.
+Give it a photo of a face. It finds the face, searches the web for a matching photo already posted somewhere (Instagram, X, Facebook, LinkedIn, TikTok, Reddit), and saves proof of that match on a blockchain — so the discovery can be checked again later and can't quietly be changed.
 
 ```
-face photo → detect + encode face → reverse image search → matching social post → hash + upload to blockchain → re-verify on-chain
+photo → find & encode the face → search the web for a match → matching post found → save proof on-chain → check it again anytime
 ```
 
 ---
 
-## Pipeline Stages
+## How it works
 
-**1. Face detection & encoding** (`src/face_id.py`) — detects the face in an input photo and produces a numeric encoding plus a SHA-256 fingerprint. Uses `face_recognition` (dlib, 128-d embedding) when available, and falls back to a zero-dependency OpenCV Haar-cascade + HOG encoder otherwise.
+**1. Face detection** (`src/face_id.py`) — finds the face in your photo and turns it into a set of numbers (an "encoding") plus a fingerprint hash. Uses `face_recognition` (a well-tested face model) when it's installed, and falls back to a simpler built-in method if not.
 
-**2. Reverse image search** (`src/reverse_search.py`) — uploads the cropped face and runs a genuine reverse-image search (Google Lens via SerpApi, or Bing Visual Search), filtered down to real social media posts (Instagram, X/Twitter, Facebook, LinkedIn, TikTok, Reddit). Every social-domain candidate is face-verified against the original photo before being reported.
+**2. Reverse image search** (`src/reverse_search.py`) — uploads the face and searches for it online (via Google Lens or Bing), then checks every result against the original face before reporting it as a match.
 
-**3. Blockchain anchoring** (`src/simple_chain.py`, or `src/eth_chain.py` for a real testnet) — hashes the face fingerprint and discovered post into one record, mines it into a new block, then re-verifies it against the chain. `src/verify.py` re-runs just that verification later, independently.
+**3. Blockchain proof** (`src/simple_chain.py`, or `src/eth_chain.py` for a real test network) — takes the fingerprint and the matched post, saves them together as a record, and can verify that record again later. `src/verify.py` does just that re-check on its own.
 
-Run all three stages together with `src/pipeline.py`.
+Run everything together with `src/pipeline.py`.
 
 ---
 
-## Tech Stack
+## Built with
 
-| Category | Technologies |
+| Part | What's used |
 |---|---|
-| Face detection | `face_recognition` (dlib, 128-d embeddings), OpenCV Haar-cascade + HOG fallback |
-| Reverse image search | SerpApi (Google Lens), Bing Visual Search |
-| Blockchain (default) | Local simulated chain — SHA-256 hash-chained, proof-of-work mined |
-| Blockchain (optional) | Polygon Amoy testnet via `web3.py` + Solidity (`ProofRegistry.sol`) |
-| Testing | `unittest` — 32 tests |
-| CI/CD | GitHub Actions |
+| Face detection | `face_recognition` (dlib), with an OpenCV fallback |
+| Web search | SerpApi (Google Lens), Bing Visual Search |
+| Blockchain (default) | A local, hash-chained ledger — real cryptography, runs on your machine |
+| Blockchain (optional) | Polygon Amoy test network via `web3.py` + a Solidity contract |
+| Tests | `unittest`, 32 tests |
+| CI | GitHub Actions |
 
 ---
 
-## Setup
+## Getting started
 
 ```bash
 python3 -m venv venv
@@ -69,83 +67,83 @@ cp .env.example .env
 # add your SERPAPI_KEY (see below)
 ```
 
-`requirements.txt` includes `face_recognition` (dlib-based — the recommended, accurate backend). If it fails to install (dlib needs a C++ compiler), that's fine: `face_id.py` automatically falls back to the OpenCV encoder with zero extra dependencies.
+`requirements.txt` includes `face_recognition`, which needs a C++ compiler to install (it uses dlib). If that install fails, don't worry — `face_id.py` automatically switches to a built-in OpenCV method instead.
 
-**Getting a SerpApi key** — sign up free at [serpapi.com](https://serpapi.com/) (100 free searches/month) and copy the key into `.env` as `SERPAPI_KEY`. Prefer Bing instead? Set `SEARCH_PROVIDER=bing` and `AZURE_BING_KEY`.
+**Getting a SerpApi key** — sign up free at [serpapi.com](https://serpapi.com/) (100 free searches a month) and put the key in `.env` as `SERPAPI_KEY`. Prefer Bing? Set `SEARCH_PROVIDER=bing` and `AZURE_BING_KEY` instead.
 
 ---
 
-## Usage
+## Using it
 
-**Full pipeline** (the one to record):
+**Run the whole pipeline:**
 ```bash
 python src/pipeline.py sample_images/your_photo.jpg
 ```
 
-**Individual stages:**
+**Or run one step at a time:**
 ```bash
-python src/face_id.py sample_images/your_photo.jpg --visualize out.jpg   # face detection only
-python src/reverse_search.py sample_images/your_photo_face_crop.jpg      # reverse search only
-python src/simple_chain.py demo                                          # tamper-evidence demo
-python src/verify.py sample_images/your_photo.jpg                        # re-verify later
+python src/face_id.py sample_images/your_photo.jpg --visualize out.jpg   # just detect the face
+python src/reverse_search.py sample_images/your_photo_face_crop.jpg      # just search
+python src/simple_chain.py demo                                          # see the blockchain part work
+python src/verify.py sample_images/your_photo.jpg                        # check a record again later
 ```
 
-**Useful `pipeline.py` flags:**
+**Useful flags on `pipeline.py`:**
 ```bash
---chain testnet       # use the real testnet backend instead of the local chain
---provider bing       # use Bing Visual Search instead of SerpApi
---mock                # rehearsal only, no real search — never use for a submission recording
---visualize out.jpg   # save an annotated photo with the face boxed
---out result.json     # save the full JSON result
+--chain testnet       # use the real test network instead of the local one
+--provider bing       # search with Bing instead of SerpApi
+--mock                # practice run, no real search
+--visualize out.jpg   # save a photo with the face marked
+--out result.json     # save the full result as JSON
 ```
 
-The pipeline fails fast — a missing API key or config problem is reported immediately, before any processing runs.
+If a key or setting is missing, it tells you right away instead of failing partway through.
 
 ---
 
-## Testing
+## Running the tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Runs automatically on every push via GitHub Actions, including a full `dlib` install, so the `face_recognition` backend is continuously tested end to end.
+These run automatically on every push, including a full install of `dlib`, so the real face-matching path gets tested every time — not just the fallback.
 
 ---
 
-## Project Structure
+## Project layout
 
 ```text
 src/
-├── config.py            centralized, fail-fast .env/config loading
-├── face_id.py            stage 1: face detection + encoding
-├── reverse_search.py      stage 2: reverse image search + social filtering
-├── simple_chain.py         stage 3 (default): local simulated blockchain
-├── eth_chain.py             stage 3 (optional): real testnet via web3.py
-├── pipeline.py               orchestrates all three stages
-└── verify.py                  standalone re-verification
+├── config.py            loads settings from .env, fails fast if something's missing
+├── face_id.py            step 1: find and encode the face
+├── reverse_search.py      step 2: search the web, filter to real matches
+├── simple_chain.py         step 3 (default): local blockchain
+├── eth_chain.py             step 3 (optional): real test network
+├── pipeline.py               runs all three steps
+└── verify.py                  checks a saved record again
 contracts/
-└── ProofRegistry.sol       Solidity contract used by the testnet backend
-tests/                       32 unit tests
-sample_images/               put your own test photo here (not committed)
+└── ProofRegistry.sol       the smart contract used by the test network option
+tests/                       32 tests
+sample_images/               put a test photo here (not tracked by git)
 ```
 
 ---
 
-## Known Limitations
+## What this doesn't do well yet
 
-- **Face encoding accuracy** — the OpenCV fallback encoder is a classical HOG descriptor, not a deep-learning embedding; it won't reliably match faces across very different lighting, angle, or age gaps the way `face_recognition` would.
-- **Reverse search needs a genuinely indexed photo** — a brand-new, never-posted photo will correctly return no social match; that's the search working, not a bug.
-- **"Visually similar" is not automatically "same person"** — every social-domain candidate is face-verified against the original encoding before being reported, bounded by the same encoder-accuracy caveat above.
-- **Local chain vs. testnet** — the default chain is tamper-evident and cryptographically real but not decentralized (a single local ledger file). The optional testnet path gives an actual public, decentralized ledger at the cost of needing a wallet and network access.
-- **`eth_chain.py` was written but not network-tested** in the original dev sandbox (RPC/PyPI access was blocked there); it follows the standard `web3.py` pattern but should be tested before depending on it for a recording.
-- **SerpApi's free tier is 100 searches/month** — switch to `SEARCH_PROVIDER=bing` (also free-tier) or a paid key past that.
+- **The fallback face encoder is weaker.** When `face_recognition` isn't installed, the backup method (plain OpenCV) won't match faces as reliably across different lighting, angles, or age gaps.
+- **A photo that's never been posted online won't find a match — and that's correct**, not a bug.
+- **Looking similar isn't the same as being the same person.** Every match found online gets checked against the original face before being reported, but that check has the same accuracy limits as above.
+- **The default blockchain is local, not public.** It's cryptographically real (tamper-evident, hash-chained) but lives on one machine. The optional test-network mode gives you an actual public, shared ledger, at the cost of needing a wallet and network access.
+- **`eth_chain.py` hasn't been tested against a live network yet** — it follows the standard `web3.py` pattern, but test it yourself before relying on it.
+- **SerpApi's free tier is 100 searches a month** — switch to `SEARCH_PROVIDER=bing` or a paid key once you hit that.
 
 ---
 
-## Ethics & Consent
+## Please use this responsibly
 
-This pipeline can identify where else a face appears online — a real identification capability, not a toy. Only run it on your own photo or one you have explicit permission to use. Built as a technical demonstration for a hackathon shortlisting task, not as a surveillance, stalking, or doxxing tool.
+This can find where else a face shows up online — that's a real capability, not a toy. Only run it on your own photo, or one you have permission to use. It's a technical demo, not a tool for stalking, surveillance, or doxxing anyone.
 
 ---
 
